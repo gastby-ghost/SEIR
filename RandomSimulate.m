@@ -1,0 +1,63 @@
+%初始人数
+Population=9600000;
+%初始感染人数
+infective0=1;
+%状态
+S=true(1,Population);
+E=false(1,Population);
+ET=repmat(10000,1,Population);
+ET_mu=5.2;
+ET_sigma=3.6;
+I=false(1,Population);
+IT=repmat(10000,1,Population);
+IT_mu=10;
+IT_sigma=2;
+R=false(1,Population);
+%初始化感染个体
+IPosition0=fix(unifrnd(1,Population,1,infective0));
+I(IPosition0)=1;
+S(IPosition0)=0;
+%仿真部分
+time=0;
+%仿真时间
+SimuTime=60;
+%绘图参数
+S_y=zeros(1,SimuTime);
+I_y=zeros(1,SimuTime);
+E_y=zeros(1,SimuTime);
+R_y=zeros(1,SimuTime);
+time_x=zeros(1,SimuTime);
+while(time<SimuTime)
+    time=time+1;
+    %将感染期的个体变成恢复期的个体
+    R(IT==1)=1;
+    I(IT==1)=0;
+    %恢复时间递减
+    IT=IT-1;
+    %将潜伏期的个体变成感染期的个体
+    I(ET==1)=1;
+    E(ET==1)=0;
+    %正太分布的恢复期
+    IT(ET==1)=fix(normrnd(IT_mu,IT_sigma,1,length(find(ET==1))));
+    %潜伏时间递减
+    ET=ET-1;
+    %基于共同空间获取上个步长的感染情况
+    [ETemp,C]=ComPlace(I);
+    %进行感染的计算
+    %从上个感染的人群中去除感染者与康复者
+    ETemp(R&I)=0;
+    E(ETemp)=1;
+    %正太分布的潜伏期
+    ET(ETemp)=fix(normrnd(ET_mu,ET_sigma,1,length(find(ETemp))));
+    S(ETemp)=0;
+    %步长结束，添加数据
+    S_y(time)=length(find(S));
+    E_y(time)=length(find(E));
+    I_y(time)=length(find(I));
+    R_y(time)=length(find(R));
+    time_x(time)=time;
+end
+plot(time_x,S_y);
+plot(time_x,E_y);
+plot(time_x,I_y);
+plot(time_x,R_y);
