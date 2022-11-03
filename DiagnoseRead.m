@@ -1,22 +1,20 @@
-function tableout = DiagnoseRead(workbookFile,sheetName,startRow,endRow)
+function Diagnose = DiagnoseRead(workbookFile, sheetName, dataLines)
 %IMPORTFILE 导入电子表格中的数据
-%   DATA = IMPORTFILE(FILE) 读取名为 FILE 的 Microsoft Excel
-%   电子表格文件的第一张工作表中的数据，并以表的形式返回该数据。
+%  DIAGNOSE = IMPORTFILE(FILE) 读取名为 FILE 的 Microsoft Excel
+%  电子表格文件的第一张工作表中的数据。  以表形式返回数据。
 %
-%   DATA = IMPORTFILE(FILE,SHEET) 从指定的工作表中读取。
+%  DIAGNOSE = IMPORTFILE(FILE, SHEET) 从指定的工作表中读取。
 %
-%   DATA = IMPORTFILE(FILE,SHEET,STARTROW,ENDROW)
-%   对于指定的行间隔从指定工作表中读取。对于不连续的行间隔，将 STARTROW 和 ENDROW
-%   指定为大小匹配的一对标量或矢量。要读取到文件结尾，请为 inf 指定 ENDROW。
+%  DIAGNOSE = IMPORTFILE(FILE, SHEET,
+%  DATALINES)按指定的行间隔读取指定工作表中的数据。对于不连续的行间隔，请将 DATALINES 指定为正整数标量或 N×2
+%  正整数标量数组。
 %
-%	非数值元胞将替换为: NaN
+%  示例:
+%  Diagnose = importfile("D:\shan\桌面\SEIR\Diagnose.xlsx", "ods_sjkfds_zsj_daily_confirmed_", [2, 78]);
 %
-% 示例:
-%   Diagnose = importfile('Diagnose.xlsx','ods_sjkfds_zsj_daily_confirmed_',1,339);
+%  另请参阅 READTABLE。
 %
-%   另请参阅 XLSREAD。
-
-% 由 MATLAB 自动生成于 2022/10/24 16:51:50
+% 由 MATLAB 于 2022-11-03 11:26:53 自动生成
 
 %% 输入处理
 
@@ -26,43 +24,31 @@ if nargin == 1 || isempty(sheetName)
 end
 
 % 如果未指定行的起点和终点，则会定义默认值。
-if nargin <= 3
-    startRow = 1;
-    endRow = 339;
+if nargin <= 2
+    dataLines = [2, 78];
 end
 
-%% 导入数据，并提取 Excel 序列日期格式的电子表格日期
-[~, ~, raw, dates] = xlsread(workbookFile, sheetName, sprintf('A%d:C%d',startRow(1),endRow(1)),'' , @convertSpreadsheetExcelDates);
-for block=2:length(startRow)
-    [~, ~, tmpRawBlock,tmpDateNumBlock] = xlsread(workbookFile, sheetName, sprintf('A%d:C%d',startRow(block),endRow(block)),'' , @convertSpreadsheetExcelDates);
-    raw = [raw;tmpRawBlock]; %#ok<AGROW>
-    dates = [dates;tmpDateNumBlock]; %#ok<AGROW>
+%% 设置导入选项并导入数据
+opts = spreadsheetImportOptions("NumVariables", 3);
+
+% 指定工作表和范围
+opts.Sheet = sheetName;
+opts.DataRange = "A" + dataLines(1, 1) + ":C" + dataLines(1, 2);
+
+% 指定列名称和类型
+opts.VariableNames = ["Time", "Cumulative", "New_confirmed"];
+opts.VariableTypes = ["datetime", "double", "double"];
+
+% 指定变量属性
+opts = setvaropts(opts, "Time", "InputFormat", "");
+
+% 导入数据
+Diagnose = readtable(workbookFile, opts, "UseExcel", false);
+
+for idx = 2:size(dataLines, 1)
+    opts.DataRange = "A" + dataLines(idx, 1) + ":C" + dataLines(idx, 2);
+    tb = readtable(workbookFile, opts, "UseExcel", false);
+    Diagnose = [Diagnose; tb]; %#ok<AGROW>
 end
-raw(cellfun(@(x) ~isempty(x) && isnumeric(x) && isnan(x),raw)) = {''};
-raw = raw(:,[2,3]);
-dates = dates(:,1);
 
-%% 将非数值元胞替换为 NaN
-R = cellfun(@(x) ~isnumeric(x) && ~islogical(x),raw); % 查找非数值元胞
-raw(R) = {NaN}; % 替换非数值元胞
-R = cellfun(@(x) ~isnumeric(x) && ~islogical(x),dates); % 查找非数值元胞
-dates(R) = {NaN}; % 将非数值 Excel 日期替换为 NaN
-
-%% 创建输出变量
-I = cellfun(@(x) ischar(x), raw);
-raw(I) = {NaN};
-data = reshape([raw{:}],size(raw));
-
-%% 创建表
-tableout = table;
-
-%% 将导入的数组分配给列变量名称
-dates(~cellfun(@(x) isnumeric(x) || islogical(x), dates)) = {NaN};
-tableout.Time = datetime([dates{:,1}].', 'ConvertFrom', 'Excel');
-tableout.Cumulative = data(:,1);
-tableout.New_confirmed = data(:,2);
-
-% 对于要求日期序列(datenum)而不是日期时间的代码，请取消注释以下行，以便以 datenum 形式返回导入的日期。
-
-% tableout.Time=datenum(tableout.Time);
-
+end
