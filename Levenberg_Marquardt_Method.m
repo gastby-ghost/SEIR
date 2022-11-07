@@ -10,7 +10,7 @@ format long;
 %   x_optimization：目标函数取最小值时的自变量值
 %   f_optimization：目标函数的最小值
 if nargin == 6
-    epsilon = 1.0e-6;
+    epsilon = 1.0e-2;
 end
 S = transpose(f)*f;
 k = length(f);
